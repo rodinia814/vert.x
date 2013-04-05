@@ -736,10 +736,11 @@ public class VerticleManager implements ModuleReloader {
     final ClassLoader sharedLoader = worker ? new ParentLastURLClassLoader(urls, getClass()
                 .getClassLoader()): null;
 
-    for (int i = 0; i < instances; i++) {
 
-      // Launch the verticle instance
+    // Launch the verticle instance
 
+    ClassLoader oldTCCL = Thread.currentThread().getContextClassLoader();
+    try {
       final ClassLoader cl = sharedLoader != null ?
           sharedLoader: new ParentLastURLClassLoader(urls, getClass().getClassLoader());
       Thread.currentThread().setContextClassLoader(cl);
@@ -766,8 +767,9 @@ public class VerticleManager implements ModuleReloader {
       }
 
       verticleFactory.init(this);
+      for (int i = 0; i < instances; i++) {
 
-      Runnable runner = new Runnable() {
+        Runnable runner = new Runnable() {
         public void run() {
 
           Verticle verticle = null;
@@ -813,13 +815,17 @@ public class VerticleManager implements ModuleReloader {
           }
 
         }
-      };
+        };
 
-      if (worker) {
-        vertx.startInBackground(runner);
-      } else {
-        vertx.startOnEventLoop(runner);
+        if (worker) {
+          vertx.startInBackground(runner);
+        } else {
+          vertx.startOnEventLoop(runner);
+        }
       }
+    }
+    finally {
+         Thread.currentThread().setContextClassLoader(oldTCCL);
     }
   }
 
